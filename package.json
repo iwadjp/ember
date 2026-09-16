@@ -1,0 +1,9 @@
+{
+  "name": "ember",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Rescue JavaScript source a live Node process's V8 isolate still holds, and compare it against disk, HEAD, and the index.",
+  "license": "SEE LICENSE IN LICENSE",
+  "scripts": { "test": "node --test test/*.test.cjs" },
+  "engines": { "node": ">=22" }
+}
