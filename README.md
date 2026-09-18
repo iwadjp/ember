@@ -225,3 +225,18 @@ npm test
 License selection (see [LICENSE](LICENSE)) and publication itself are
 outside this file's scope; see the project's own release process for that
 decision.
+
+## Related tools
+
+This project is part of a small set of tools for investigating AI-coding and
+debugging problems that Git alone cannot explain.
+
+- [Timewitness](https://github.com/iwadjp/timewitness) — check whether a regression test fails before a fix and passes after it.
+- [wipwho](https://github.com/iwadjp/wipwho) — split mixed uncommitted Claude/Codex changes into request-level patches.
+- [Ember](https://github.com/iwadjp/ember) — recover source retained by a still-running Node.js process.
+- [Worldbisect](https://github.com/iwadjp/worldbisect) — reduce same-commit environment differences to an observed 1-minimal reproducing set.
+- [Afterimage](https://github.com/iwadjp/afterimage) — inspect retained NTFS USN history after an agent run.
+
+[Overview and articles](https://blog2020.iwadjp.com/2026/09/18/ai-coding-debugging-tools-portfolio/)
+
+**Article:** [Node.jsのsourceを上書き・削除してしまった。まだ動いているprocessから取り戻せるか確かめるEmber](https://blog2020.iwadjp.com/2026/09/18/ember-rescue-source-from-running-node-process/)
