@@ -222,9 +222,7 @@ separation, and activation negative cases — against synthetic fixtures only.
 npm test
 ```
 
-License selection (see [LICENSE](LICENSE)) and publication itself are
-outside this file's scope; see the project's own release process for that
-decision.
+Public v0.1.0 is a source-only release; see [LICENSE](LICENSE) for license terms.
 
 ## Related tools
 
