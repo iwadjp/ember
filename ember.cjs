@@ -289,7 +289,9 @@ async function run({cwd=process.cwd(),rescue=false,discovered,activateInspector=
   }
   const sources=inspections.flatMap(i=>i.rows),rows=sources.map(({source,...row})=>row);
   const report={name:'Ember',startedAt,finishedAt:new Date().toISOString(),root,head:git(root,['rev-parse','HEAD']).toString().trim(),endpointsProbed:discovery.endpoints,inspectors:discovery.found.length,activation,processes:inspections.map(({rows,...rest})=>rest),failures,rows,summary:{loaded:rows.length,inSync:rows.filter(r=>r.status==='IN_SYNC').length,rescueCandidates:rows.filter(r=>!['IN_SYNC','DISK_UNREADABLE'].includes(r.status)).length},limits:['V8 source text; not original byte encoding or a complete runnable project','Automatic discovery uses --inspect command lines; explicit PID selection also finds already-enabled inspectors without that flag','No source maps, data files, native code, workers, unloaded scripts, or full-history absence proof','Debugger enable/disable may add overhead; no pause, evaluation, reload, or source edits','Non-atomic observation; source URL is supplied by V8 and is not authenticated provenance','Activation inherits target Inspector settings and leaves its listener enabled; Ember connects only to observed loopback endpoints; default port 9229 may conflict']};
-  if(rescue) report.recovery=saveRecovery(report,sources,outputDir);
+  // Nothing to save and a selected PID is unusable: do not leave an empty recovery directory behind.
+  const pidFailed=failures.some(f=>/^PID_/.test(f.reason));
+  if(rescue&&!(pidFailed&&!report.summary.rescueCandidates)) report.recovery=saveRecovery(report,sources,outputDir);
   return report;
 }
 function textReport(report) {

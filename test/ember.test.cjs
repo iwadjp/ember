@@ -148,3 +148,25 @@ test('an exited --pid is reported as a failure, not as an idle process', { timeo
   assert.deepEqual(report.failures, [{ pid: deadPid, reason: 'PID_MISSING' }]);
   assert.match(require('../ember.cjs').textReport(report), new RegExp('PID_MISSING  PID ' + deadPid));
 });
+
+test('rescue of a missing or non-Node --pid leaves no empty output directory', { timeout: 60000 }, async () => {
+  const root = makeRepo(), out = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'ember-out-'));
+  const dying = spawn(process.execPath, ['-e', 'setTimeout(()=>{},60000)'], { cwd: root, windowsHide: true });
+  await new Promise(r => setTimeout(r, 400));
+  const deadPid = dying.pid;
+  dying.kill();
+  await once(dying, 'exit');
+  for (const [pid, reason] of [[deadPid, 'PID_MISSING'], [4, 'PID_NOT_NODE']]) {
+    const report = await run({ cwd: root, rescue: true, selectedPids: [pid], outputDir: out });
+    assert.deepEqual(report.failures, [{ pid, reason }]);
+    assert.equal(report.recovery, undefined);
+  }
+  assert.deepEqual(fs.readdirSync(out), []);
+  const idle = spawn(process.execPath, ['-e', 'setTimeout(()=>{},60000)'], { cwd: root, windowsHide: true });
+  try {
+    await new Promise(r => setTimeout(r, 400));
+    const report = await run({ cwd: root, rescue: true, selectedPids: [idle.pid], outputDir: out });
+    assert.deepEqual(report.failures, []);
+    assert.ok(fs.existsSync(path.join(report.recovery.output, 'manifest.json')), 'live Node without inspector keeps its manifest-only recovery');
+  } finally { idle.kill(); }
+});
