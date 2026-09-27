@@ -27,7 +27,7 @@ test('invalid output parents and a junction into the target are rejected', () =>
   const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'ember-output-boundary-')), root = path.join(sandbox, 'target'), child = path.join(root, 'nested'); fs.mkdirSync(child, { recursive: true });
   assert.throws(() => recoveryBase(root, root), /outside/); assert.throws(() => recoveryBase(root, child), /outside/);
   assert.throws(() => recoveryBase(root, __dirname), /outside/);
-  assert.throws(() => recoveryBase(root, path.join(sandbox, 'missing')), /ENOENT/);
+  assert.throws(() => recoveryBase(root, path.join(sandbox, 'missing')), /existing directory: .*missing/);
   const file = path.join(sandbox, 'file'); fs.writeFileSync(file, 'x'); assert.throws(() => recoveryBase(root, file), /existing directory/);
   const alias = path.join(sandbox, 'alias'); fs.symlinkSync(root, alias, process.platform === 'win32' ? 'junction' : 'dir'); assert.throws(() => recoveryBase(root, alias), /outside/);
 });

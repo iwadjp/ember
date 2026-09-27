@@ -236,7 +236,8 @@ async function inspectTarget(root,target,view=gitView(root)) {
   return {pid:target.pid,rows,errors,methods:[...new Set(client.methods)]};
 }
 function recoveryBase(root,outputDir=os.tmpdir()) {
-  const base=fs.realpathSync(outputDir);
+  let base;
+  try { base=fs.realpathSync(outputDir); } catch(e) { if(e.code==='ENOENT') throw new Error('--output must name an existing directory: '+outputDir); throw e; }
   if(!fs.statSync(base).isDirectory()) throw new Error('--output must name an existing directory');
   for(const protectedRoot of [root,fs.realpathSync(__dirname)]) {
     if(path.relative(protectedRoot,base)===''||inside(protectedRoot,base)) throw new Error('Recovery output must be outside the target repository and tool directory');

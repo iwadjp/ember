@@ -38,12 +38,27 @@ Verified against Node **24.15.0**. Run inside the target Git repository — the
 one whose files the target process loaded. Ember itself needs no `npm
 install`, no Git repository of its own, and no `.gitignore` entry.
 
+Try the synthetic demo first. It needs no real target process and starts and
+stops only its own throwaway processes (see [Demo](#demo)):
+
+```powershell
+npx -p github:iwadjp/ember ember-demo
+```
+
+Then, inside the target repository, run it without cloning:
+
+```powershell
+npx github:iwadjp/ember scan
+```
+
+Or from a clone or a downloaded copy of `ember.cjs`:
+
 ```powershell
 node path\to\ember.cjs scan
 ```
 
-`scan` reports without saving anything. Try it first with the synthetic demo,
-which needs no real target process: see [Demo](#demo).
+`scan` reports without saving anything. Every `node path\to\ember.cjs`
+command below also works as `npx github:iwadjp/ember`.
 
 ## Rescue from an already-inspected process
 
@@ -209,6 +224,8 @@ processes it started. It runs four scenarios and checks each with SHA-256:
 ```powershell
 node demo\run-demo.cjs
 ```
+
+Without a clone: `npx -p github:iwadjp/ember ember-demo`.
 
 ## Development status
 
