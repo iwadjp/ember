@@ -170,3 +170,16 @@ test('rescue of a missing or non-Node --pid leaves no empty output directory', {
     assert.ok(fs.existsSync(path.join(report.recovery.output, 'manifest.json')), 'live Node without inspector keeps its manifest-only recovery');
   } finally { idle.kill(); }
 });
+
+test('text report names a selected PID that had no inspector when another PID succeeded', () => {
+  const { textReport } = require('../ember.cjs');
+  const base = { inspectors: 1, summary: { loaded: 1, inSync: 0, rescueCandidates: 1 }, failures: [],
+    rows: [{ pid: 101, path: 'a.js', status: 'HEAD_SURVIVES' }], processes: [{ pid: 101, errors: [] }] };
+  const mixed = textReport({ ...base, activation: { requested: false, selectedPids: [101, 202], activatedPids: [], failed: [] } });
+  assert.match(mixed, /NO_INSPECTOR  PID 202/);
+  assert.doesNotMatch(mixed, /NO_INSPECTOR  PID 101/);
+  const single = textReport({ ...base, activation: { requested: false, selectedPids: [101], activatedPids: [], failed: [] } });
+  assert.doesNotMatch(single, /NO_INSPECTOR/);
+  const failed = textReport({ ...base, failures: [{ pid: 202, reason: 'PID_MISSING' }], activation: { requested: false, selectedPids: [101, 202], activatedPids: [], failed: [] } });
+  assert.doesNotMatch(failed, /NO_INSPECTOR/);
+});

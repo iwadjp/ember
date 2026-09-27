@@ -299,6 +299,11 @@ function textReport(report) {
   for(const row of report.rows.filter(r=>r.status!=='IN_SYNC')) lines.push(`  ${row.status}  PID ${row.pid}  ${row.path}`);
   if(report.activation&&report.activation.requested&&report.activation.activatedPids.length) lines.push(`ACTIVATES_INSPECTOR_ON_TARGET: opened the V8 Inspector on ${report.activation.activatedPids.length} process(es) that were not started with --inspect (PID ${report.activation.activatedPids.join(', ')}).`);
   for(const f of report.failures.filter(f=>/^PID_/.test(f.reason))) lines.push(`  ${f.reason}  PID ${f.pid}`);
+  // A selected live PID without an inspector is otherwise silent when another PID succeeded.
+  if(report.inspectors&&report.activation&&!report.activation.requested) {
+    const seen=new Set([...report.processes.map(p=>p.pid),...report.failures.map(f=>f.pid)]);
+    for(const pid of report.activation.selectedPids.filter(pid=>!seen.has(pid))) lines.push(`  NO_INSPECTOR  PID ${pid}  not read; start it with --inspect or add --activate-inspector`);
+  }
   if(report.activation) for(const f of report.activation.failed) lines.push(`  ACTIVATION_FAILED  PID ${f.pid}  ${f.reason}`);
   if(!report.inspectors) lines.push(report.activation&&report.activation.requested?'No enabled inspector found or activated.':'No enabled inspector found. Start your Node app with: node --inspect=127.0.0.1:0 app.js, or select its PID with --pid PID --activate-inspector.');
   if(report.inspectors&&!report.summary.loaded) lines.push('No supported scripts found inside the current Git repository.');
