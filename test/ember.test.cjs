@@ -136,3 +136,15 @@ test('multiple simultaneous processes: activation only touches in-repo plain can
     for (const child of children) child.kill();
   }
 });
+
+test('an exited --pid is reported as a failure, not as an idle process', { timeout: 30000 }, async () => {
+  const root = makeRepo();
+  const dying = spawn(process.execPath, ['-e', 'setTimeout(()=>{},60000)'], { cwd: root, windowsHide: true });
+  await new Promise(r => setTimeout(r, 400));
+  const deadPid = dying.pid;
+  dying.kill();
+  await once(dying, 'exit');
+  const report = await run({ cwd: root, selectedPids: [deadPid] });
+  assert.deepEqual(report.failures, [{ pid: deadPid, reason: 'PID_MISSING' }]);
+  assert.match(require('../ember.cjs').textReport(report), new RegExp('PID_MISSING  PID ' + deadPid));
+});

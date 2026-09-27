@@ -279,6 +279,11 @@ async function run({cwd=process.cwd(),rescue=false,discovered,activateInspector=
     for(const a of result.activated) if(!known.has(a.pid)) { discovery.found.push(a); known.add(a.pid); }
   }
   const inspections=[],failures=[...activation.failed],view=gitView(root);
+  if(!activateInspector&&selectedPids) for(const pid of selectedPids) {
+    if(discovery.found.some(f=>f.pid===pid)) continue;
+    const status=verifyPlainNodeTarget(pid); // A stale PID must not look like an idle Node process.
+    if(['MISSING','NOT_NODE'].includes(status)) failures.push({pid,reason:'PID_'+status});
+  }
   for(const target of discovery.found) {
     try{inspections.push(await inspectTarget(root,target,view));}catch(e){failures.push({pid:target.pid,reason:e.message});}
   }
@@ -291,6 +296,7 @@ function textReport(report) {
   const lines=['EMBER — source still alive',`${report.inspectors} inspector(s); ${report.summary.loaded} repository scripts; ${report.summary.inSync} match disk; ${report.summary.rescueCandidates} rescue candidate(s).`];
   for(const row of report.rows.filter(r=>r.status!=='IN_SYNC')) lines.push(`  ${row.status}  PID ${row.pid}  ${row.path}`);
   if(report.activation&&report.activation.requested&&report.activation.activatedPids.length) lines.push(`ACTIVATES_INSPECTOR_ON_TARGET: opened the V8 Inspector on ${report.activation.activatedPids.length} process(es) that were not started with --inspect (PID ${report.activation.activatedPids.join(', ')}).`);
+  for(const f of report.failures.filter(f=>/^PID_/.test(f.reason))) lines.push(`  ${f.reason}  PID ${f.pid}`);
   if(report.activation) for(const f of report.activation.failed) lines.push(`  ACTIVATION_FAILED  PID ${f.pid}  ${f.reason}`);
   if(!report.inspectors) lines.push(report.activation&&report.activation.requested?'No enabled inspector found or activated.':'No enabled inspector found. Start your Node app with: node --inspect=127.0.0.1:0 app.js, or select its PID with --pid PID --activate-inspector.');
   if(report.inspectors&&!report.summary.loaded) lines.push('No supported scripts found inside the current Git repository.');
