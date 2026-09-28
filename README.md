@@ -239,7 +239,7 @@ separation, and activation negative cases — against synthetic fixtures only.
 npm test
 ```
 
-Public v0.1.0 is a source-only release; see [LICENSE](LICENSE) for license terms.
+Public v0.1.1 is a source-only release; see [LICENSE](LICENSE) for license terms.
 
 ## Related tools
 
