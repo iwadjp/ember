@@ -44,7 +44,7 @@ function discover(selectedPids) {
   const selection=selectedPids===undefined
     ? "$_.CommandLine -match '--inspect(?:-brk|-wait)?(?:[=\\s]|$)'"
     : '@('+selectedPids.map(validatePid).join(',')+') -contains [int]$_.ProcessId';
-  const ps = "$ErrorActionPreference='Stop'; $nodes=@(Get-CimInstance Win32_Process -Filter \"Name = 'node.exe'\" | Where-Object { "+selection+" }); $ports=@(Get-NetTCPConnection -State Listen | Where-Object { $_.LocalAddress -eq '127.0.0.1' -or $_.LocalAddress -eq '::1' }); @($nodes | ForEach-Object { $n=$_; $ports | Where-Object OwningProcess -eq $n.ProcessId | ForEach-Object { [pscustomobject]@{pid=[int]$n.ProcessId; port=[int]$_.LocalPort; host=$_.LocalAddress} } }) | ConvertTo-Json -Compress";
+  const ps = "$ErrorActionPreference='Stop'; $nodes=@(Get-CimInstance Win32_Process -Filter \"Name = 'node.exe'\" | Where-Object { "+selection+" }); $ports=@(Get-NetTCPConnection -State Listen | Where-Object { $_.LocalAddress -eq '127.0.0.1' -or $_.LocalAddress -eq '::1' }); @($nodes | ForEach-Object { $n=$_; $ports | Where-Object OwningProcess -eq $n.ProcessId | ForEach-Object { [pscustomobject]@{pid=[int]$n.ProcessId; port=[int]$_.LocalPort; host=$_.LocalAddress; identity=@{created=$n.CreationDate.ToUniversalTime().ToString('o'); executable=$n.ExecutablePath; commandLine=$n.CommandLine}} } }) | ConvertTo-Json -Depth 3 -Compress";
   const output=execFileSync('powershell.exe',['-NoProfile','-NonInteractive','-Command',ps],{windowsHide:true,timeout:15000,encoding:'utf8',maxBuffer:1024*1024}).trim();
   if(!output) return [];
   const parsed=JSON.parse(output), rows=Array.isArray(parsed)?parsed:[parsed];
@@ -75,6 +75,20 @@ async function targets(selectedPids) {
   }));
   for(const result of results) if(result.status==='fulfilled') found.push(...result.value);
   return {endpoints:endpoints.length, found:[...new Map(found.map(f=>[f.websocket,f])).values()]};
+}
+
+function verifyInspectorTarget(target) {
+  // /json/list identifies a debug target, not its owning PID. A port can have
+  // changed owners since discovery, even when it still serves a Node inspector.
+  const fields=['created','executable','commandLine'];
+  const verified=identity=>identity&&fields.every(key=>typeof identity[key]==='string'&&identity[key].length>0);
+  if(!verified(target.identity)) throw new Error('PID_IDENTITY_UNVERIFIED');
+  let current;
+  try { current=discover([target.pid]).find(row=>row.port===target.port&&row.host===target.host); }
+  catch { throw new Error('PID_IDENTITY_QUERY_FAILED'); }
+  if(!current) throw new Error('PID_INSPECTOR_MISMATCH');
+  if(!verified(current.identity)) throw new Error('PID_IDENTITY_UNVERIFIED');
+  if(fields.some(key=>current.identity[key]!==target.identity[key])) throw new Error('PID_IDENTITY_CHANGED');
 }
 
 // ---- Opt-in post-hoc Inspector activation (--activate-inspector only) ----
@@ -157,7 +171,11 @@ async function activatePlainTargets(root,excludePids,selectedPids=[],onActivate=
     const url=new URL(entry.webSocketDebuggerUrl);
     if(url.protocol!=='ws:'||!['127.0.0.1','[::1]','localhost'].includes(url.hostname)||Number(url.port)!==listener.port) { failures.push({pid,reason:'ACTIVATION_FAILED: endpoint validation failed'}); continue; }
     url.hostname=listener.host==='::1'?'[::1]':listener.host;
-    activated.push({pid,port:listener.port,host:listener.host,websocket:url.href});
+    // Activation targets need the same incarnation snapshot as pre-inspected ones.
+    let observed;
+    try { observed=discover([pid]).find(row=>row.port===listener.port&&row.host===listener.host); } catch {}
+    if(!observed) { failures.push({pid,reason:'ACTIVATION_FAILED: inspector owner could not be verified'}); continue; }
+    activated.push({...observed,websocket:url.href});
   }
   return {activated,failures};
 }
@@ -187,7 +205,7 @@ class Inspector {
     });
   }
   async close() {
-    if(this.socket.readyState===WebSocket.OPEN) {try{await this.request('Debugger.disable')}catch{} this.socket.close();}
+    if(this.socket.readyState===WebSocket.OPEN) {if(this.methods.includes('Debugger.enable')) {try{await this.request('Debugger.disable')}catch{}} this.socket.close();}
     else this.socket.close();
   }
 }
@@ -215,6 +233,9 @@ async function inspectTarget(root,target,view=gitView(root)) {
   const client=new Inspector(target.websocket),rows=[],errors=[];
   try {
     await client.open();
+    // The connected socket cannot switch to a replacement process. Recheck its
+    // observed owner/incarnation before sending any debugger command or reading source.
+    verifyInspectorTarget(target);
     await client.request('Debugger.enable',{maxScriptsCacheSize:32*1024*1024});
     // Existing scriptParsed events precede the enable response in CDP. Later loads
     // are outside this bounded snapshot; this is not an atomic process snapshot.
